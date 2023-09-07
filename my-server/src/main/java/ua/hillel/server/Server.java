@@ -5,20 +5,17 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+
 
 public class Server implements AutoCloseable, ConnectionHandler {
 
     private final static int DEFAULT_PORT = 8000;
-    private final Lock lock;
     private final ServerSocket serverSocket;
-    private List<Connection> connections = new ArrayList<>();
+    private final List<Connection> connections = new ArrayList<>();
 
 
     public Server(int port) throws IOException {
         this.serverSocket = new ServerSocket(port);
-        lock = new ReentrantLock();
 
     }
 
@@ -26,11 +23,15 @@ public class Server implements AutoCloseable, ConnectionHandler {
         this(DEFAULT_PORT);
     }
 
+    public Server(ServerSocket serverSocket) {
+        this.serverSocket = serverSocket;
+    }
+
     public void start() {
-        while (!serverSocket.isClosed()){
+        while (!serverSocket.isClosed()) {
             try {
-                Socket accept = serverSocket.accept();
-                Connection connection = new Connection(accept, this);
+                Socket clientSocket = serverSocket.accept();
+                Connection connection = new Connection(clientSocket, this);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -44,18 +45,16 @@ public class Server implements AutoCloseable, ConnectionHandler {
 
     @Override
     public void onConnect(Connection connection) {
-        lock.lock();
         connections.add(connection);
         connection.sendMessage("SERVER COMMANDS: \n [-exit] - для відключення; \n " +
                 "[-file /filePath] - щоб зберегти файл на сервері;");
         connections.forEach(c -> c.sendMessage(String.format("[%s] - успішно підключений", connection.getName())));
-        lock.unlock();
     }
 
     @Override
     public void onMessage(Connection connection, String message) {
-        for (Connection connect: connections) {
-            if (!connect.equals(connection)){
+        for (Connection connect : connections) {
+            if (!connect.equals(connection)) {
                 connect.sendMessage(String.format("[%s]: %s", connection.getName(), message));
             }
         }
@@ -63,9 +62,11 @@ public class Server implements AutoCloseable, ConnectionHandler {
 
     @Override
     public void onDisconnect(Connection connection) {
-        lock.lock();
         connections.remove(connection);
         connections.forEach(c -> c.sendMessage(String.format("[%s] - відєднався", connection.getName())));
-        lock.unlock();
+    }
+
+    public List<Connection> getConnections() {
+        return connections;
     }
 }

@@ -30,12 +30,9 @@ public class Connection {
         doConnection();
     }
 
-    private void doConnection(){
+    private void doConnection() {
         new Thread(() -> {
-
-            try (socket;
-                 reader;
-                 writer) {
+            try {
 
                 clientName = String.format("client-%d", clientNumber);
                 handler.onConnect(this);
@@ -43,6 +40,9 @@ public class Connection {
                 String message;
                 while ((message = reader.readLine()) != null) {
                     if (message.equalsIgnoreCase("-exit")) {
+                        writer.close();
+                        reader.close();
+                        socket.close();
                         break;
                     } else if (message.toLowerCase().startsWith("-file")) {
                         saveFile(message);
@@ -59,22 +59,22 @@ public class Connection {
         }).start();
     }
 
-    public void sendMessage(String message){
+    protected void sendMessage(String message) {
         writer.println(message);
         writer.flush();
     }
 
-    private void saveFile(String filePath) throws IOException {
+    protected void saveFile(String filePath) throws IOException {
         Path original = Paths.get(filePath.substring("-file".length()).trim());
 
         String[] splitFilePath = filePath.split("/");
-        String fileName = splitFilePath[splitFilePath.length -1];
+        String fileName = splitFilePath[splitFilePath.length - 1];
         Path copied = Paths.get(DEFAULT_DIRECTORY_PATH + "/" + fileName);
 
         if (original.toFile().exists()) {
             Files.copy(original, copied, StandardCopyOption.REPLACE_EXISTING);
             sendMessage("Файл " + fileName + " успішно збережений!");
-        }else {
+        } else {
             sendMessage("Неправильний шлях до файлу!");
         }
     }
@@ -82,6 +82,7 @@ public class Connection {
     public String getName() {
         return clientName;
     }
+
 
     @Override
     public String toString() {
